@@ -55,9 +55,10 @@ def test_read_json(json_file):
 
 
 # add to contents of json file
-def test_write_json(json_file):
-    with atomic.atomic_write(str(json_file)) as temp_file:
-        with open(str(json_file)) as products_file:
+def test_write_json(tmpdir, json_file):
+    tmp_write = tmpdir.join("tmp_write.json")
+    with atomic.atomic_write(str(tmp_write)) as temp_file:
+        with open(str(json_file), "r") as products_file:
             # get the JSON data into memory
             products_data = json.load(products_file)
         # now process the JSON data
@@ -68,15 +69,25 @@ def test_write_json(json_file):
              })
         json.dump(products_data, temp_file)
 
-    with open(str(json_file)) as f:
+    with open(str(tmp_write)) as f:
         products_data = json.load(f)
     test = [i for i in products_data if i["uuid"] == "2299d69e-deba-11e8-bded-680715cce955"]
     assert test[0]["name"] == 'Test Product'
 
 
-def test_get_item(json_file):
+def test_get_item(tmpdir, json_file):
+    tmp_write = tmpdir.join("tmp_write.json")
+    with open(str(tmp_write), "w") as temp_file:
+        with open(str(json_file), "r") as products_file:
+            products_data = json.load(products_file)
+        products_data.append(
+            {'uuid': "2299d69e-deba-11e8-bded-680715cce955",
+             'price': 111.0,
+             'name': "Test Product"
+             })
+        json.dump(products_data, temp_file)
     results = atomic.get_item(
-        str(json_file), "2299d69e-deba-11e8-bded-680715cce955")
+        str(tmp_write), "2299d69e-deba-11e8-bded-680715cce955")
     assert results
     assert results[0]["name"] == 'Test Product'
 
@@ -87,34 +98,60 @@ def test_get_no_item(json_file):
     assert not results
 
 
-def test_set_item(json_file):
+def test_set_item(tmpdir, json_file):
+    tmp_write = tmpdir.join("tmp_write.json")
+    with open(str(json_file), "r") as products_file:
+        products_data = json.load(products_file)
+    with open(str(tmp_write), "w") as temp_file:
+        json.dump(products_data, temp_file)
     new_item = {'uuid': "1144d69e-joya-33e8-bdfd-680688cce955",
                 'price': 333.0,
                 'name': "Test Product via set_item"
                 }
-    results = atomic.set_item(str(json_file), new_item)
+    results = atomic.set_item(str(tmp_write), new_item)
     results_get = atomic.get_item(
-        str(json_file), "1144d69e-joya-33e8-bdfd-680688cce955")
+        str(tmp_write), "1144d69e-joya-33e8-bdfd-680688cce955")
     assert results
     assert results_get[0]["name"] == 'Test Product via set_item'
 
 
-def test_update_item(json_file):
+def test_update_item(tmpdir, json_file):
+    tmp_write = tmpdir.join("tmp_write.json")
+    with open(str(json_file), "r") as products_file:
+        products_data = json.load(products_file)
+    with open(str(tmp_write), "w") as temp_file:
+        products_data.append(
+            {'uuid': "1144d69e-joya-33e8-bdfd-680688cce955",
+             'price': 333.0,
+             'name': "old item"
+             })
+        json.dump(products_data, temp_file)
     mod_item = {'price': 777.0,
                 'name': "Test Product via update_item"
                 }
-    results = atomic.update_item(str(json_file), mod_item, "1144d69e-joya-33e8-bdfd-680688cce955")
+    results = atomic.update_item(str(tmp_write), mod_item, "1144d69e-joya-33e8-bdfd-680688cce955")
     results_get = atomic.get_item(
-        str(json_file), "1144d69e-joya-33e8-bdfd-680688cce955")
+        str(tmp_write), "1144d69e-joya-33e8-bdfd-680688cce955")
     assert results
     assert results_get[0]["name"] == 'Test Product via update_item'
     assert results_get[0]["price"] == 777.0
 
 
-def test_set_item_fail(json_file):
+def test_set_item_fail(tmpdir, json_file):
+    tmp_write = tmpdir.join("tmp_write.json")
+    with open(str(json_file), "r") as products_file:
+        products_data = json.load(products_file)
+    with open(str(tmp_write), "w") as temp_file:
+        products_data.append(
+            {'uuid': "1144d69e-joya-33e8-bdfd-680688cce955",
+             'price': 333.0,
+             'name': "exist item"
+             })
+        json.dump(products_data, temp_file)
+
     new_item = {'uuid': "1144d69e-joya-33e8-bdfd-680688cce955",
                 'price': 333.0,
                 'name': "Test Product via set_item"
                 }
-    results = atomic.set_item(str(json_file), new_item)
+    results = atomic.set_item(str(tmp_write), new_item)
     assert not results
